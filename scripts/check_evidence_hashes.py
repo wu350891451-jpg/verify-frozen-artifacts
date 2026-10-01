@@ -15,8 +15,8 @@ This checker separates those cases:
   reported without being treated as a pass.
 
 Exit codes:
-    0 = every current-state declaration matched, or no current-state claim
-        existed and only historical/unresolved references were present
+    0 = every current-state declaration matched; documents with no
+        current-state claims do not fail when another document has one
     1 = a current-state mismatch, missing file, or ambiguous path was found
     2 = usage or parse error
     3 = the document contained no current-state hash declaration

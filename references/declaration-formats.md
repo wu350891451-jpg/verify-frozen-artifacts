@@ -106,5 +106,12 @@ Usage or parse error:
 [verify] ERROR cannot parse claims.json: line 3: invalid SHA256 'not-a-hash'
 ```
 
-Exit codes are stable and safe to gate on: `0` all matched, `1` mismatch or
-missing, `2` usage or parse error. Do not treat exit 2 as a pass.
+Exit codes are stable and safe to gate on.
+
+For `verify_declared_hashes.py`: `0` all matched, `1` mismatch or missing,
+`2` usage or parse error.
+
+For `check_evidence_hashes.py`: `0` current declarations matched, `1`
+mismatch or missing, `2` parse error, `3` no document contained a current
+declaration, `4` a current declaration had no resolvable path. Do not treat
+exit `2`, `3`, or `4` as a pass.
