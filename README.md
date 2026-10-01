@@ -19,10 +19,19 @@ python3 scripts/verify_declared_hashes.py claims.json --format json --root .
 # JSON array with custom field names
 python3 scripts/verify_declared_hashes.py claims.json --format json --root . \
   --name-key artifact --hash-key digest
+
+# Evidence packet whose hashes are embedded in prose, code fences, or tables
+python3 scripts/check_evidence_hashes.py sys-agents/tasks \
+  --workspace /path/to/workspace
 ```
 
-Exit codes: `0` all matched, `1` mismatch or missing file, `2` usage or parse
-error.
+Exit codes for `verify_declared_hashes.py`: `0` all matched, `1` mismatch or
+missing file, `2` usage or parse error.
+
+Exit codes for `check_evidence_hashes.py`: `0` current declarations matched,
+`1` mismatch or missing file, `2` parse error, `3` no current declaration
+found, `4` a current declaration had no resolvable path. Codes `2`-`4` are
+not passes.
 
 ## Example
 
@@ -41,10 +50,27 @@ $ python3 scripts/verify_declared_hashes.py manifest.sha256 --root .
 
 ```bash
 python3 tests/test_verify_declared_hashes.py
+python3 tests/test_check_evidence_hashes.py
 ```
 
 Covers positive manifest/JSON-map/JSON-array cases, tampered-byte and
 missing-file negatives, and malformed/empty declaration rejection.
+
+## Evidence packets
+
+Evidence packets deliberately keep the pre-change baseline, the current
+delivery state, and superseded freeze values in one document. The evidence
+checker uses the document's task id plus the manifest chain to separate them:
+
+- `current`: the declared value should match the file on disk;
+- `historical`: the document says the value is a before/old/round value;
+- `superseded`: the value was a freeze for the path, but a newer manifest
+  owns that path now;
+- `unresolved`: a bare digest, or a declaration without a usable path.
+
+Only `current` declarations gate the exit code. This avoids the failure this
+tool exists to catch: a stale current value that looks like an old value and
+gets waved through.
 
 ## What it does not do
 

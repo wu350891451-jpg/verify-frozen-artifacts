@@ -1,4 +1,4 @@
 interface:
   display_name: "Verify Frozen Artifacts"
   short_description: "Check claimed hashes against real bytes"
-  default_prompt: "Verify that this manifest's declared SHA256 values match the files on disk, and report any mismatch, missing file, or unparseable record without treating exit 2 as a pass."
+  default_prompt: "Verify the declared SHA256 values in this manifest or evidence packet against the files on disk. Separate current, historical, and superseded declarations; report mismatch, missing file, or unresolved claim; never treat exit 2-4 as a pass."

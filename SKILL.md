@@ -24,22 +24,27 @@ present a PASS as evidence that data is valid.
 
 ## Workflow
 
-1. Identify the declaration source: a `sha256sum`-style manifest, or a JSON
-   file (either an object mapping path to hash, or an array of
-   `{"path": ..., "sha256": ...}` objects).
-2. Run the checker against it.
+1. Identify the declaration source: a `sha256sum`-style manifest, a JSON file,
+   or an evidence document with hashes in prose, tables, and code fences.
+2. Run the matching checker.
 3. Treat exit code 1 as blocking. Every mismatch, missing file, or unreadable
-   record is printed with both declared and actual digests.
+   record is printed with both declared and actual digests. Exit 2-4 are
+   also not passes.
 
 ```bash
 python3 scripts/verify_declared_hashes.py path/to/manifest.sha256 --root .
 python3 scripts/verify_declared_hashes.py claims.json --format json --root . \
   --name-key path --hash-key sha256
+python3 scripts/check_evidence_hashes.py sys-agents/tasks --workspace .
 ```
 
-Exit codes: `0` all matched, `1` mismatch or missing file, `2` usage or
-parse error. Exit `2` is not a pass; a malformed declaration must be fixed
-before results are trusted.
+For `verify_declared_hashes.py`, exit codes are: `0` all matched, `1` mismatch
+or missing file, `2` usage or parse error.
+
+For `check_evidence_hashes.py`, exit codes are: `0` current declarations
+matched, `1` mismatch or missing file, `2` parse error, `3` no current
+declaration found, `4` a current declaration had no resolvable path. None of
+`2`, `3`, or `4` is a pass.
 
 ## Rules that matter
 
@@ -49,6 +54,9 @@ before results are trusted.
 - The checker does not follow symlinks for verification decisions; it reads
   whatever the resolved path points to and hashes those bytes.
 - A PASS is only about byte identity. State that boundary when reporting.
+- For evidence packets, only `current` declarations gate the result. Values
+  marked before/old/round1/round2 are retained as history, and values
+  superseded by a newer manifest are reported separately.
 
 ## Reference
 

@@ -60,6 +60,23 @@ python3 scripts/verify_declared_hashes.py claims.json --format json \
 Change `--name-key` and `--hash-key` when a downstream schema uses different
 field names, such as `artifact` and `digest`.
 
+## 4. Evidence packet format
+
+Evidence packets are Markdown, not manifests. Run
+`scripts/check_evidence_hashes.py` against them. It accepts:
+
+- `sha256sum` code blocks;
+- Markdown before/after tables;
+- `round1:` / `round2:` values;
+- `old -> new  path` lines;
+- `sha256 = ...` key/value lines.
+
+The checker reads the adjacent heading or code fence to classify each value.
+Only declarations classified as `current` are compared and gated. Historical
+values and values superseded by a newer manifest are printed for transparency
+but do not fail the run. A bare digest with no path is reported as
+`unresolved`.
+
 ## Output
 
 Success:
