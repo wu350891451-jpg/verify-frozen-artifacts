@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify Frozen Artifacts GitHub Action: SHA256 integrity usage guide</title>
+  <meta name="description" content="Use Verify Frozen Artifacts as a GitHub Action or CLI to fail CI when a frozen file, manifest, or AI-agent evidence packet no longer matches its declared SHA256.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://wu350891451-jpg.github.io/verify-frozen-artifacts/guide/">
+  <meta property="og:title" content="Verify Frozen Artifacts GitHub Action usage guide">
+  <meta property="og:description" content="Install the action, verify a manifest or evidence packet, and understand the fail-closed exit codes.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://wu350891451-jpg.github.io/verify-frozen-artifacts/guide/">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": "Verify Frozen Artifacts GitHub Action: SHA256 integrity usage guide",
+      "description": "Use Verify Frozen Artifacts as a GitHub Action or CLI to fail CI when a frozen file, manifest, or AI-agent evidence packet no longer matches its declared SHA256.",
+      "datePublished": "2026-10-02",
+      "dateModified": "2026-10-02",
+      "mainEntityOfPage": "https://wu350891451-jpg.github.io/verify-frozen-artifacts/guide/",
+      "author": {
+        "@type": "Person",
+        "url": "https://github.com/wu350891451-jpg"
+      },
+      "codeRepository": "https://github.com/wu350891451-jpg/verify-frozen-artifacts"
+    }
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #16181d;
+      --muted: #59606d;
+      --line: #d9dde4;
+      --bg: #f7f8fa;
+      --panel: #fff;
+      --accent: #0f5c4d;
+      --accent-soft: #e6f2ef;
+      --code: #11151a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(860px, calc(100% - 32px)); margin: 0 auto; padding: 46px 0 72px; }
+    h1 { margin: 0 0 12px; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.07; letter-spacing: 0; }
+    h2 { margin: 44px 0 12px; font-size: 1.5rem; letter-spacing: 0; }
+    h3 { margin: 28px 0 8px; font-size: 1.08rem; }
+    p, li { color: var(--ink); }
+    .lede { max-width: 720px; color: var(--muted); font-size: 1.15rem; }
+    a { color: var(--accent); }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    pre {
+      overflow-x: auto;
+      margin: 14px 0 20px;
+      padding: 18px;
+      border-radius: 8px;
+      background: var(--code);
+      color: #e9eef5;
+      font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0 22px; background: var(--panel); }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: var(--accent-soft); }
+    .note { margin: 22px 0; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+    .note h2 { margin-top: 0; }
+    footer { margin-top: 52px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .92rem; }
+  </style>
+</head>
+<body>
+<main>
+  <p><a href="/verify-frozen-artifacts/">Verify Frozen Artifacts</a></p>
+  <h1>Verify SHA256 claims in GitHub Actions</h1>
+  <p class="lede">
+    This guide shows how to fail a workflow when a frozen artifact or
+    AI-agent evidence packet claims a SHA256 that no longer matches the bytes
+    on disk.
+  </p>
+
+  <h2>What the action checks</h2>
+  <p>
+    The action compares declared SHA256 values with the files in a checked-out
+    workspace. It fails closed: a mismatch, a missing file, a parse error, and
+    an unresolvable declaration are not treated as a pass.
+  </p>
+  <p>
+    It is intended for post-freeze edits, stale evidence claims, and files
+    that were silently replaced or never written. It does not establish who
+    produced a file or whether the underlying data is correct. Use Sigstore,
+    cosign, in-toto, or SLSA when publisher authenticity is part of the threat
+    model.
+  </p>
+
+  <h2>Use the action with a SHA256 manifest</h2>
+  <p>
+    Commit a <code>sha256sum</code>-style manifest such as
+    <code>artifacts.sha256</code>, then add this job to a workflow:
+  </p>
+  <pre><code>name: Verify frozen artifacts
+
+on: [push, pull_request]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wu350891451-jpg/verify-frozen-artifacts@v0.2.0
+        with:
+          declaration: artifacts.sha256
+          root: .</code></pre>
+  <p>
+    Pin the action to a full commit SHA in security-sensitive repositories.
+    The <code>v0.2.0</code> tag is convenient for evaluation.
+  </p>
+
+  <h2>Verify an AI-agent evidence packet</h2>
+  <p>
+    Evidence documents often mix the current delivery state with historical
+    and superseded values. Point the action at the packet directory instead
+    of a single manifest:
+  </p>
+  <pre><code>- uses: wu350891451-jpg/verify-frozen-artifacts@v0.2.0
+  with:
+    evidence-path: sys-agents/tasks
+    workspace: .</code></pre>
+  <p>
+    Set either <code>declaration</code> or <code>evidence-path</code>, not
+    both. The checker classifies declarations as <code>current</code>,
+    <code>historical</code>, <code>superseded</code>, <code>stale</code>, or
+    <code>unresolved</code>. Only current declarations gate the exit code.
+  </p>
+
+  <h2>Exit codes</h2>
+  <table>
+    <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>0</code></td><td>Every current declaration matched.</td></tr>
+      <tr><td><code>1</code></td><td>Mismatch, missing file, or ambiguous path.</td></tr>
+      <tr><td><code>2</code></td><td>Usage or parse error.</td></tr>
+      <tr><td><code>3</code></td><td>No document contained a current declaration.</td></tr>
+      <tr><td><code>4</code></td><td>A current declaration had no resolvable path.</td></tr>
+    </tbody>
+  </table>
+  <p>Codes 2, 3, and 4 are failures, not passes.</p>
+
+  <h2>Run the CLI locally</h2>
+  <pre><code>git clone https://github.com/wu350891451-jpg/verify-frozen-artifacts.git
+cd verify-frozen-artifacts
+python3 scripts/verify_declared_hashes.py demo/manifest.sha256 --root demo</code></pre>
+  <p>
+    The CLI also accepts JSON objects mapping a path to a digest and JSON
+    arrays with custom field names:
+  </p>
+  <pre><code>python3 scripts/verify_declared_hashes.py claims.json --format json --root .
+python3 scripts/verify_declared_hashes.py claims.json --format json --root . \
+  --name-key artifact --hash-key digest</code></pre>
+
+  <div class="note">
+    <h2>Public-repository example</h2>
+    <p>
+      The action is running in the public
+      <a href="https://github.com/wu350891451-jpg/Jacky">Jacky repository</a>.
+      See the
+      <a href="https://github.com/wu350891451-jpg/Jacky/blob/main/.github/workflows/verify.yml">workflow file</a>
+      and the
+      <a href="https://github.com/wu350891451-jpg/Jacky/actions/runs/36947732905">successful GitHub-hosted runner run</a>.
+    </p>
+  </div>
+
+  <h2>Common failure modes</h2>
+  <ul>
+    <li><strong>Mismatch:</strong> the artifact changed after the digest was recorded.</li>
+    <li><strong>Missing file:</strong> the manifest points outside the checked-out tree or to a file that was not committed.</li>
+    <li><strong>No current declaration:</strong> the evidence packet contains only historical or superseded hashes.</li>
+    <li><strong>Unresolved path:</strong> a digest appears without a path that can be tied to a file.</li>
+  </ul>
+
+  <h2>FAQ</h2>
+  <h3>Is this a signature or provenance verifier?</h3>
+  <p>No. It checks byte identity only.</p>
+  <h3>Does a pass prove the data is correct?</h3>
+  <p>No. A pass means the bytes still match the declaration.</p>
+  <h3>Can I use it outside GitHub Actions?</h3>
+  <p>Yes. The repository includes dependency-free Python CLIs for local checks and other CI systems.</p>
+  <h3>Where is the source?</h3>
+  <p><a href="https://github.com/wu350891451-jpg/verify-frozen-artifacts">github.com/wu350891451-jpg/verify-frozen-artifacts</a></p>
+
+  <footer>
+    MIT licensed. Release:
+    <a href="https://github.com/wu350891451-jpg/verify-frozen-artifacts/releases/tag/v0.2.0">v0.2.0</a>.
+  </footer>
+</main>
+</body>
+</html>
