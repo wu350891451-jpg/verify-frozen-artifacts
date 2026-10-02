@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile
+        run: python -m py_compile scripts/*.py tests/*.py
+      - name: Self-tests
+        run: |
+          python tests/test_verify_declared_hashes.py
+          python tests/test_check_evidence_hashes.py
+      - name: Demo should pass before tampering
+        run: python scripts/verify_declared_hashes.py demo/manifest.sha256 --root demo
+      - name: Demo should fail after tampering
+        run: |
+          cp demo/artifact.txt /tmp/artifact.txt
+          printf 'tampered\n' >> demo/artifact.txt
+          if python scripts/verify_declared_hashes.py demo/manifest.sha256 --root demo; then
+            echo "tampered artifact unexpectedly passed"
+            mv /tmp/artifact.txt demo/artifact.txt
+            exit 1
+          fi
+          mv /tmp/artifact.txt demo/artifact.txt
+
+  action-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run composite action
+        uses: ./
+        with:
+          declaration: demo/manifest.sha256
+          root: demo

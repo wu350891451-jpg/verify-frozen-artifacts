@@ -1,0 +1,82 @@
+name: Verify Frozen Artifacts
+description: Fail when declared SHA256 values no longer match the bytes on disk
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  declaration:
+    description: Manifest or JSON file holding the SHA256 claims
+    required: false
+    default: ""
+  root:
+    description: Directory used to resolve relative artifact paths
+    required: false
+    default: "."
+  format:
+    description: Declaration format (manifest or json)
+    required: false
+    default: manifest
+  name-key:
+    description: JSON field holding the artifact path
+    required: false
+    default: path
+  hash-key:
+    description: JSON field holding the digest
+    required: false
+    default: sha256
+  evidence-path:
+    description: Evidence Markdown file or directory to scan instead of a declaration
+    required: false
+    default: ""
+  workspace:
+    description: Workspace root used to resolve evidence paths
+    required: false
+    default: "."
+
+outputs:
+  result:
+    description: pass when every current declaration matched
+    value: ${{ steps.verify.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: Verify declarations
+      id: verify
+      shell: bash
+      env:
+        VFA_ACTION_PATH: ${{ github.action_path }}
+        VFA_DECLARATION: ${{ inputs.declaration }}
+        VFA_ROOT: ${{ inputs.root }}
+        VFA_FORMAT: ${{ inputs.format }}
+        VFA_NAME_KEY: ${{ inputs['name-key'] }}
+        VFA_HASH_KEY: ${{ inputs['hash-key'] }}
+        VFA_EVIDENCE_PATH: ${{ inputs['evidence-path'] }}
+        VFA_WORKSPACE: ${{ inputs.workspace }}
+      run: |
+        set -eu
+
+        if [ -n "$VFA_DECLARATION" ] && [ -n "$VFA_EVIDENCE_PATH" ]; then
+          echo "::error::set either declaration or evidence-path, not both"
+          exit 2
+        fi
+
+        if [ -n "$VFA_DECLARATION" ]; then
+          python3 "$VFA_ACTION_PATH/scripts/verify_declared_hashes.py" \
+            "$VFA_DECLARATION" \
+            --root "$VFA_ROOT" \
+            --format "$VFA_FORMAT" \
+            --name-key "$VFA_NAME_KEY" \
+            --hash-key "$VFA_HASH_KEY"
+        elif [ -n "$VFA_EVIDENCE_PATH" ]; then
+          python3 "$VFA_ACTION_PATH/scripts/check_evidence_hashes.py" \
+            "$VFA_EVIDENCE_PATH" \
+            --workspace "$VFA_WORKSPACE"
+        else
+          echo "::error::set declaration or evidence-path"
+          exit 2
+        fi
+
+        echo "result=pass" >> "$GITHUB_OUTPUT"

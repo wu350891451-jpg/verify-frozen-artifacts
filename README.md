@@ -1,86 +1,152 @@
-# verify-frozen-artifacts
+# Verify Frozen Artifacts
 
-Check that a manifest, audit record, or evidence file's declared SHA256
-values match the actual bytes on disk.
+[![CI](https://github.com/wu350891451-jpg/verify-frozen-artifacts/actions/workflows/ci.yml/badge.svg)](https://github.com/wu350891451-jpg/verify-frozen-artifacts/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-This catches one specific failure: an artifact was edited after being frozen,
-silently replaced with an older build, or never written at all, while the
-recorded hash still claims otherwise.
+Fail CI when a manifest or an AI-agent evidence packet claims a SHA256 that
+no longer matches the bytes on disk.
 
-## Usage
+This catches a specific and expensive failure: an artifact was edited after
+being frozen, silently replaced with an older build, or never written at all,
+while the record still claims the original bytes.
+
+It is not another checksum utility. Two things are different:
+
+1. Evidence packets mix current, historical, and superseded hashes in the
+   same Markdown file. This tool separates them instead of treating every
+   digest as a current claim.
+2. It fails closed. A mismatch, missing file, parse error, or unresolvable
+   declaration is never reported as a pass.
+
+## 30-second demo
 
 ```bash
-# sha256sum-style manifest, paths resolved against the repo root
+git clone https://github.com/wu350891451-jpg/verify-frozen-artifacts.git
+cd verify-frozen-artifacts
+
+python3 scripts/verify_declared_hashes.py demo/manifest.sha256 --root demo
+# [verify] PASS 1/1 declared artifact(s) match recorded bytes
+```
+
+Now change the protected artifact:
+
+```bash
+printf 'tampered\n' >> demo/artifact.txt
+python3 scripts/verify_declared_hashes.py demo/manifest.sha256 --root demo
+# [verify] FAIL mismatch: artifact.txt
+#   declared=b4862708...
+#   actual  =...
+# exit code 1
+```
+
+Restore the demo with `git restore demo/artifact.txt`.
+
+No dependencies. Python 3.8 or newer.
+
+## Use in GitHub Actions
+
+Standard manifest:
+
+```yaml
+name: Verify frozen artifacts
+
+on: [push, pull_request]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wu350891451-jpg/verify-frozen-artifacts@v0.2.0
+        with:
+          declaration: artifacts.sha256
+          root: .
+```
+
+AI-agent evidence packet:
+
+```yaml
+      - uses: wu350891451-jpg/verify-frozen-artifacts@v0.2.0
+        with:
+          evidence-path: sys-agents/tasks
+          workspace: .
+```
+
+Set either `declaration` or `evidence-path`, not both. For security-sensitive
+repositories, pin the action to a commit SHA rather than a tag.
+
+## Command line
+
+```bash
+# sha256sum-style manifest
 python3 scripts/verify_declared_hashes.py manifest.sha256 --root .
 
-# JSON object mapping path -> hash
+# JSON object mapping path to digest
 python3 scripts/verify_declared_hashes.py claims.json --format json --root .
 
 # JSON array with custom field names
 python3 scripts/verify_declared_hashes.py claims.json --format json --root . \
   --name-key artifact --hash-key digest
 
-# Evidence packet whose hashes are embedded in prose, code fences, or tables
-python3 scripts/check_evidence_hashes.py sys-agents/tasks \
-  --workspace /path/to/workspace
+# Evidence packet with hashes in prose, code fences, or tables
+python3 scripts/check_evidence_hashes.py sys-agents/tasks --workspace .
 ```
 
-Exit codes for `verify_declared_hashes.py`: `0` all matched, `1` mismatch or
-missing file, `2` usage or parse error.
+The manifest checker exits `0` when every declaration matches, `1` on a
+mismatch or missing file, and `2` on a usage or parse error.
 
-Exit codes for `check_evidence_hashes.py`: `0` current declarations matched,
-`1` mismatch or missing file, `2` parse error, `3` no current declaration
-found, `4` a current declaration had no resolvable path. Codes `2`-`4` are
-not passes.
+The evidence checker exits:
 
-## Example
+| Code | Meaning |
+|---:|---|
+| `0` | Every current declaration matched |
+| `1` | Mismatch, missing file, or ambiguous path |
+| `2` | Parse error |
+| `3` | No document contained a current declaration |
+| `4` | A current declaration had no resolvable path |
 
-```text
-$ python3 scripts/verify_declared_hashes.py manifest.sha256 --root .
-[verify] PASS 14/14 declared artifact(s) match recorded bytes
+Codes `2`, `3`, and `4` are not passes.
 
-$ python3 scripts/verify_declared_hashes.py manifest.sha256 --root .
-[verify] FAIL mismatch: scripts/lock.py
-  declared=d8b18b76d563e142d839619155f646e2648d9ebae6a54f3cbed2b9b025ef89c2
-  actual  =ce87c8c4163f9c09047083ac15ac2afc7be4267b120fe27465ad789248defc60
-[verify] FAIL 1/14 declared artifact(s) did not match
-```
+## Evidence packet semantics
 
-## Testing
+Evidence documents often keep the pre-change baseline and the delivery state
+in one file. The checker uses the task id and manifest chain to classify each
+declaration:
+
+- `current`: the digest should match the file on disk;
+- `historical`: the document marks it as before, old, or a round value;
+- `superseded`: a newer manifest now owns that path;
+- `stale`: the document still presents an older freeze as current, so it fails;
+- `unresolved`: a bare digest or a declaration without a usable path.
+
+Only current declarations gate the exit code. This avoids waving through a
+stale value merely because it looks historical.
+
+## What it does not do
+
+A pass means the declared bytes are the bytes on disk. It does not prove that
+the data is correct, current, authentic, or trustworthy, and it does not
+validate business logic.
+
+This is not a signing or provenance system. Use Sigstore, cosign, in-toto, or
+SLSA when the threat model includes a malicious publisher rather than an
+accidental post-freeze edit or a stale evidence claim.
+
+## As a Codex skill
+
+The repository also contains `SKILL.md`. Install the folder in a skill
+directory when you want an agent to run the same fail-closed check and report
+current, historical, and superseded declarations correctly.
+
+## Development
 
 ```bash
 python3 tests/test_verify_declared_hashes.py
 python3 tests/test_check_evidence_hashes.py
 ```
 
-Covers positive manifest/JSON-map/JSON-array cases, tampered-byte and
-missing-file negatives, and malformed/empty declaration rejection.
-
-## Evidence packets
-
-Evidence packets deliberately keep the pre-change baseline, the current
-delivery state, and superseded freeze values in one document. The evidence
-checker uses the document's task id plus the manifest chain to separate them:
-
-- `current`: the declared value should match the file on disk;
-- `historical`: the document says the value is a before/old/round value;
-- `superseded`: the value was a freeze for the path, but a newer manifest
-  owns that path now;
-- `unresolved`: a bare digest, or a declaration without a usable path.
-
-Only `current` declarations gate the exit code. This avoids the failure this
-tool exists to catch: a stale current value that looks like an old value and
-gets waved through.
-
-## What it does not do
-
-A PASS means the bytes match the record. It does not mean the data is
-correct, current, or trustworthy, and it does not validate business logic.
-
-## As a Codex skill
-
-This repository doubles as a Codex skill. Copy or install the folder so that
-`SKILL.md` is discoverable; see `SKILL.md` for the workflow.
+CI runs the tests on Python 3.8 and 3.12, runs the tamper demo, and exercises
+the composite action.
 
 ## License
 

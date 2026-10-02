@@ -36,10 +36,12 @@ def main() -> int:
         root = pathlib.Path(tmp)
         (root / "a.txt").write_bytes(b"alpha\n")
         (root / "b.txt").write_bytes(b"beta\n")
+        alpha_digest = sha256(b"alpha\n")
+        beta_digest = sha256(b"beta\n")
 
         manifest = root / "manifest.sha256"
         manifest.write_text(
-            f"{sha256(b'alpha\n')}  a.txt\n{sha256(b'beta\n')}  b.txt\n",
+            f"{alpha_digest}  a.txt\n{beta_digest}  b.txt\n",
             encoding="utf-8",
         )
 
@@ -61,7 +63,7 @@ def main() -> int:
         (root / "b.txt").write_bytes(b"beta\n")
         mapping = root / "map.json"
         mapping.write_text(
-            json.dumps({"a.txt": sha256(b"alpha\n"), "b.txt": sha256(b"beta\n")}),
+            json.dumps({"a.txt": alpha_digest, "b.txt": beta_digest}),
             encoding="utf-8",
         )
         json_ok = run([str(mapping), "--format", "json", "--root", str(root)])
@@ -72,8 +74,8 @@ def main() -> int:
         listing.write_text(
             json.dumps(
                 [
-                    {"path": "a.txt", "sha256": sha256(b"alpha\n")},
-                    {"path": "b.txt", "sha256": sha256(b"beta\n")},
+                    {"path": "a.txt", "sha256": alpha_digest},
+                    {"path": "b.txt", "sha256": beta_digest},
                 ]
             ),
             encoding="utf-8",
