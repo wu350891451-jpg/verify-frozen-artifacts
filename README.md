@@ -6,6 +6,8 @@
 Fail CI when a manifest or an AI-agent evidence packet claims a SHA256 that
 no longer matches the bytes on disk.
 
+Usage guide and search entry point: https://wu350891451-jpg.github.io/verify-frozen-artifacts/
+
 This catches a specific and expensive failure: an artifact was edited after
 being frozen, silently replaced with an older build, or never written at all,
 while the record still claims the original bytes.
