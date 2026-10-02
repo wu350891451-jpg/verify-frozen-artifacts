@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify Frozen Artifacts: fail CI when SHA256 evidence goes stale</title>
+  <meta name="description" content="A GitHub Action and CLI that fails closed when a manifest or AI-agent evidence packet claims a SHA256 that no longer matches the bytes on disk.">
+  <meta property="og:title" content="Verify Frozen Artifacts">
+  <meta property="og:description" content="Fail CI when a manifest or AI-agent evidence packet no longer matches its declared SHA256.">
+  <meta property="og:type" content="website">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #16181d;
+      --muted: #59606d;
+      --line: #d9dde4;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --accent: #0f5c4d;
+      --accent-soft: #e6f2ef;
+      --code: #11151a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(980px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 72px; }
+    h1 { margin: 0 0 12px; font-size: clamp(2rem, 5vw, 3.6rem); line-height: 1.05; letter-spacing: 0; }
+    h2 { margin: 48px 0 12px; font-size: 1.45rem; letter-spacing: 0; }
+    p { margin: 0 0 16px; }
+    .lede { max-width: 720px; color: var(--muted); font-size: 1.16rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 0; }
+    .button {
+      display: inline-block;
+      padding: 10px 15px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      text-decoration: none;
+      font-weight: 650;
+    }
+    .button.secondary { background: transparent; color: var(--accent); }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+    .item { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+    .item strong { display: block; margin-bottom: 6px; }
+    .item p { color: var(--muted); margin: 0; }
+    pre {
+      overflow-x: auto;
+      margin: 12px 0 0;
+      padding: 18px;
+      border-radius: 8px;
+      background: var(--code);
+      color: #e9eef5;
+      font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .band { margin-top: 48px; padding: 26px; border: 1px solid var(--line); border-radius: 8px; background: var(--accent-soft); }
+    .band h2 { margin-top: 0; }
+    footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .92rem; }
+    @media (max-width: 720px) {
+      main { padding-top: 34px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Fail CI when evidence goes stale.</h1>
+  <p class="lede">
+    Verify Frozen Artifacts checks that the SHA256 values declared in a
+    manifest or AI-agent evidence packet still match the bytes on disk. A
+    changed artifact, a missing file, or an ambiguous current claim makes the
+    check fail closed.
+  </p>
+  <div class="actions">
+    <a class="button" href="https://github.com/wu350891451-jpg/verify-frozen-artifacts">View on GitHub</a>
+    <a class="button secondary" href="https://github.com/wu350891451-jpg/verify-frozen-artifacts/releases/tag/v0.2.0">Use v0.2.0</a>
+  </div>
+
+  <h2>Why this exists</h2>
+  <div class="grid">
+    <div class="item">
+      <strong>Artifacts drift</strong>
+      <p>A file is edited after freezing, but the record still claims the old bytes.</p>
+    </div>
+    <div class="item">
+      <strong>Evidence mixes states</strong>
+      <p>The same document can contain current, historical, and superseded hashes.</p>
+    </div>
+    <div class="item">
+      <strong>CI should fail closed</strong>
+      <p>Missing files and unparseable claims are not treated as success.</p>
+    </div>
+  </div>
+
+  <h2>Run it in 30 seconds</h2>
+  <pre><code>git clone https://github.com/wu350891451-jpg/verify-frozen-artifacts.git
+cd verify-frozen-artifacts
+python3 scripts/verify_declared_hashes.py demo/manifest.sha256 --root demo</code></pre>
+
+  <h2>Use it as a GitHub Action</h2>
+  <pre><code>- uses: actions/checkout@v4
+- uses: wu350891451-jpg/verify-frozen-artifacts@v0.2.0
+  with:
+    declaration: artifacts.sha256
+    root: .</code></pre>
+
+  <div class="band">
+    <h2>Built for evidence packets</h2>
+    <p>
+      The evidence checker separates <code>current</code>,
+      <code>historical</code>, <code>superseded</code>, and
+      <code>stale</code> declarations. A stale current value still fails.
+      Only byte identity is verified; this is not a claim that the underlying
+      data is true or trustworthy.
+    </p>
+  </div>
+
+  <footer>
+    MIT licensed. Source and documentation:
+    <a href="https://github.com/wu350891451-jpg/verify-frozen-artifacts">wu350891451-jpg/verify-frozen-artifacts</a>.
+  </footer>
+</main>
+</body>
+</html>
